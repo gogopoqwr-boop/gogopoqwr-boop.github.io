@@ -339,6 +339,20 @@
                                 DEL
                             </button>
                         </div>
+
+                        <!-- Расположение текста -->
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-mono text-neutral-500 uppercase">Расположение:</span>
+                            <button id="layout-center-btn" onclick="setTextLayout('center')"
+                                class="py-1 px-2 text-[10px] font-mono font-bold uppercase border-2 border-black bg-black text-white">
+                                ⊙ По центру
+                            </button>
+                            <button id="layout-circle-btn" onclick="setTextLayout('circle')"
+                                class="py-1 px-2 text-[10px] font-mono font-bold uppercase border border-neutral-300 bg-white text-neutral-500">
+                                ◎ По кругу
+                            </button>
+                        </div>
+
                         <span class="text-[9px] font-mono text-red-500 mt-1 block">
                             ⚠️ [TODO] Добавить цензуру мата (Тимлид: "Да забей, пусть пишут че хотят")
                         </span>
@@ -849,14 +863,14 @@
             const textGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             const userText = currentConfig.dialText.trim().toUpperCase();
 
-            if (userText === 'АДОХУИЩЩ') {
-                // 7 букв равномерно по кругу r=34, центр 100,100, начало сверху
-                const word = ['А', 'Д', 'О', 'Х', 'У', 'И', 'Щ'];
+            // Функция рисования букв по кругу
+            function drawCircleText(text) {
+                const letters = [...text]; // поддержка Unicode
                 const r = 34;
-                word.forEach((letter, i) => {
-                    const angle = (i / word.length) * 2 * Math.PI - Math.PI / 2;
+                letters.forEach((letter, i) => {
+                    const angle = (i / letters.length) * 2 * Math.PI - Math.PI / 2;
                     const x = Math.round(100 + r * Math.cos(angle));
-                    const y = Math.round(100 + r * Math.sin(angle)) + 5; // +5 для визуальной центровки текста
+                    const y = Math.round(100 + r * Math.sin(angle)) + 5;
                     const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                     txt.setAttribute('x', x);
                     txt.setAttribute('y', y);
@@ -868,6 +882,27 @@
                     txt.textContent = letter;
                     textGroup.appendChild(txt);
                 });
+            }
+
+            if (textLayout === 'circle' && userText && userText !== 'АДОХУИЩЩ') {
+                // Пользователь выбрал «по кругу» для своего текста
+                drawCircleText(userText);
+            } else if (userText === 'АДОХУИЩЩ') {
+                // АДОХУИЩЩ — всегда по кругу если layout не override на center
+                if (textLayout === 'center') {
+                    // Принудительно по центру
+                    const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    txt.setAttribute('x', '100'); txt.setAttribute('y', '107');
+                    txt.setAttribute('font-family', "'Unbounded', sans-serif");
+                    txt.setAttribute('font-weight', '900');
+                    txt.setAttribute('font-size', '10');
+                    txt.setAttribute('fill', '#000000');
+                    txt.setAttribute('text-anchor', 'middle');
+                    txt.textContent = userText;
+                    textGroup.appendChild(txt);
+                } else {
+                    drawCircleText('АДОХУИЩЩ');
+                }
             } else if (userText.includes('БЕЗ ПЯТИ')) {
                 const lines = ['БЕЗ ПЯТИ', 'ШЕСТЬ', 'УТРОВ'];
                 lines.forEach((line, index) => {
@@ -972,6 +1007,19 @@
         let handsVisible = true;
         function setHandsVisibility(visible) {
             handsVisible = visible;
+            renderDial();
+        }
+
+        // Расположение текста
+        let textLayout = 'center'; // 'center' | 'circle'
+        function setTextLayout(mode) {
+            textLayout = mode;
+            document.getElementById('layout-center-btn').className = mode === 'center'
+                ? 'py-1 px-2 text-[10px] font-mono font-bold uppercase border-2 border-black bg-black text-white'
+                : 'py-1 px-2 text-[10px] font-mono font-bold uppercase border border-neutral-300 bg-white text-neutral-500';
+            document.getElementById('layout-circle-btn').className = mode === 'circle'
+                ? 'py-1 px-2 text-[10px] font-mono font-bold uppercase border-2 border-black bg-black text-white'
+                : 'py-1 px-2 text-[10px] font-mono font-bold uppercase border border-neutral-300 bg-white text-neutral-500';
             renderDial();
         }
 
@@ -1184,17 +1232,19 @@
 
         function submitMiniAppOrder() {
             const price = calculateAndRenderPrice();
-            const payload = [
-                'ORDER',
-                `MAT:${currentConfig.material}`,
-                `SHAPE:${currentConfig.shape}`,
-                `SER:${currentConfig.serial}`,
-                `STRAP:${currentConfig.strap}`,
-                `TEXT:${currentConfig.dialText.trim().toUpperCase()}`,
-                `STARS:${price}`
+            // Короткие ключи: m=material, s=shape, n=serial, r=strap, t=text, p=price
+            const short = [
+                'm:' + currentConfig.material[0],
+                's:' + currentConfig.shape[0],
+                'n:' + currentConfig.serial,
+                'r:' + currentConfig.strap.replace('plastic','pl').replace('metal','me').replace('fabric','fa').replace('-solid','s').replace('-segmented','g'),
+                't:' + currentConfig.dialText.trim().toUpperCase(),
+                'p:' + price,
+                'h:' + (handsVisible ? '1' : '0'),
+                'c:' + (textLayout === 'circle' ? '1' : '0')
             ].join('|');
 
-            const b64 = btoa(unescape(encodeURIComponent(payload)))
+            const b64 = btoa(unescape(encodeURIComponent(short)))
                 .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
             window.open(`https://t.me/${TG_BOT_USERNAME}?start=${b64}`, '_blank');
