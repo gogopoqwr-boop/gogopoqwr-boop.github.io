@@ -1186,22 +1186,20 @@
             const price = calculateAndRenderPrice();
             const payload = buildPayload(price);
 
-            if (tg?.sendData) {
-                // Внутри Mini App — отправляем данные боту напрямую
+            if (tg && tg.sendData) {
                 tg.sendData(payload);
-                closeCheckout();
+                // sendData автоматически закрывает Mini App и шлёт данные боту
             } else {
-                // Фолбэк — открываем бота со ссылкой (старый способ)
+                // Фолбэк вне TMA — открываем бота со ссылкой
                 const b64 = btoa(unescape(encodeURIComponent(
                     `ORDER|MAT:${currentConfig.material}|SHAPE:${currentConfig.shape}|SER:${currentConfig.serial}|STRAP:${currentConfig.strap}|TEXT:${currentConfig.dialText.trim().toUpperCase()}|STARS:${price}`
                 ))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
                 window.open(`https://t.me/${TG_BOT_USERNAME}?start=${b64}`, '_blank');
                 closeCheckout();
+                const toast = document.getElementById('success-toast');
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 4000);
             }
-
-            const toast = document.getElementById('success-toast');
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 4000);
         }
 
         function closeCheckout() {
